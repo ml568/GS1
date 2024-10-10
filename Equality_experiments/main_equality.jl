@@ -1,3 +1,5 @@
+# Requires "dataset" and "seeds" and "maxIter" to be specified
+
 using Printf
 using LinearAlgebra
 using Random
@@ -19,26 +21,35 @@ include("gcdratio.jl")
 
 # seeds = [1,2,3,4,5,6,7,8,9,10]
 # seeds = [30, 50, 1, 2, 3]
-seeds = [30]
+#seeds = [30]
 ds = ["randomdata"]
 for seed in seeds
     Random.seed!(seed)
     # parameters 
-    n = 1000
-    d = 1000
-    maxIter = 50000
-    marker_iter = 5000
+    marker_iter = Integer(maxIter/10)
     trackIter = 1
 
-
     # Make function
-    #X = [ones(n,1) randn(n,d-1)*diagm(rand(d-1))]
+    if dataset == "syn1"
+	n = 1000
+	d = 1000
+	    X = randn(n, d)
     w = rand(d, 1)
-    # X = randn(n, d) * diagm(rand(d))
-    X = randn(n, d)
     y = X * w + randn(n, 1)
-    # path = "RandDatajld/"
-    path = "Nodiagm_RandDatajld/"
+	elseif dataset == "syn2"
+		n = 1000
+		d = 1000
+    		X = randn(n, d) * diagm(rand(d))
+    w = rand(d, 1)
+    y = X * w + randn(n, 1)
+	else
+			(X,y) = load("../datasets/"*dataset*".jld","X","y")
+			(n,d) = size(X)
+			y[y.==0] .= -1
+	y[y.==2] .= -1
+	y[y.>2] .= 1
+	end
+    path = "plots/"*dataset
 
     # data = CSV.File("data/Residential-Building-Data-Set.csv") |> DataFrame
     # # Convert specific columns to Float64
@@ -71,6 +82,7 @@ for seed in seeds
     suff_name = "n" * string(n) * "d" * string(d) * "seed" * string(seed) * "iter" * string(maxIter)
     # fname = path * "fStar_randgreed" * suff_name
     fname = path * "fStar_randgreed" * suff_name
+    fname = path * string(seed) * string(maxIter) * "fStar.jld"
     # if file exists, load the file
     if isfile(fname)
         fStar = load(fname)
@@ -94,6 +106,8 @@ for seed in seeds
     end
 
     results_df = rcd(path, seed, X, y, f, g, fStar, Li, n, d, maxIter, trackIter) #random coordinate descent
+    @show size(X)
+    @show size(y)
     results_df = gcd(path, seed, results_df, X, y, f, g, fStar, Li, n, d, maxIter, trackIter) #greedy coordinate descent
     results_df = rcd_Li(path, seed, results_df, X, y, f, g, fStar, Li, n, d, maxIter, trackIter) #random Li coordinate descent
     results_df = gsq(path, seed, results_df, X, y, f, g, fStar, Li, n, d, maxIter, trackIter) #gsq
@@ -122,7 +136,6 @@ for seed in seeds
         f5 = point_of_zero(results_df.greedyLigs1fstar)
         f6 = point_of_zero(results_df.greedyLiApxfstar)
         plot_iter = minimum([f1, f2, f3, f4, f5, f6]) - 1
-
 
         # Plot
         p1 = plot(1:trackIter:plot_iter, results_df.randomLfstar[1:plot_iter], linewidth=5, linecolor=:royalblue3, thickness_scaling=1, xtickfontsize=9, ytickfontsize=9,
@@ -156,7 +169,8 @@ for seed in seeds
         scatter!(0:marker_iter:plot_iter, results_df.greedyLiApxfstar[(0:marker_iter:maxIter).+1], label="", marker=(:utriangle, 6, :turquoise), yaxis=:log10)
         plot!(p6, [NaN], [NaN], line=(:cyan4, 5), marker=(:utriangle, 15, 0.9, :turquoise), label="Greedy Li (Ratio)")
 
-        savefig("plots/" * "fStar_randgreed" * suff_name * "iter" * string(maxIter) * ".pdf")
+        #savefig("plots/" * "fStar_randgreed" * suff_name * "iter" * string(maxIter) * ".pdf")
+        savefig(path * string(seed) * string(maxIter) * ".pdf")
         # Plot
         # p7 = plot(0:trackIter:maxIter, results_df.randomL; rcd_plot..., plot_opts...)
         # p8 = plot!(0:trackIter:maxIter, results_df.greedyL; gcd_plot..., plot_opts...)
